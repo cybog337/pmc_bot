@@ -80,12 +80,18 @@ def send_email(articles):
     msg['From'] = TARGET_EMAIL
     msg['To'] = TARGET_EMAIL
     
+    # [수정] 스콜라와 동일한 날짜 표기 방식 적용
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    count = len(articles)
+    
     if articles:
-        msg['Subject'] = f"[PMC 알림] 'biogems' 관련 새 논문 {len(articles)}건"
+        # 규격: [PMC] 2026-02-12 신규 논문 알림 (N건)
+        msg['Subject'] = f"[PMC] {date_str} 신규 논문 알림 ({count}건)"
         body = f"검색어: {SEARCH_TERM}\n\n" + ("-" * 30) + "\n\n"
         body += "\n\n".join(articles)
     else:
-        msg['Subject'] = f"[PMC 알림] 'biogems' 관련 새 논문 0건"
+        # 0건일 때도 날짜를 포함하여 시스템 생존 확인
+        msg['Subject'] = f"[PMC] {date_str} 신규 논문 알림 (0건)"
         body = f"검색어: {SEARCH_TERM}\n\n최근 검색된 새로운 논문이 없습니다.\n시스템은 정상 작동 중입니다."
 
     msg.attach(MIMEText(body, 'plain'))
@@ -96,7 +102,7 @@ def send_email(articles):
         server.login(TARGET_EMAIL, GMAIL_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print(f"✅ 이메일 발송 완료! ({len(articles)}건)")
+        print(f"✅ [{date_str}] PMC 메일 발송 완료! ({count}건)")
     except Exception as e:
         print(f"❌ 이메일 발송 실패: {e}")
 
