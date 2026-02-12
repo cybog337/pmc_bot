@@ -36,16 +36,20 @@ def fetch_pmc_new_articles(term):
             pmc_id = doc['Id']
             title = doc.get('Title', 'No Title')
             
-            # [날짜 로직 개선]
-            # PubDate(출판일)는 월까지만 있는 경우가 많으므로,
-            # EPubDate(전자출판일)가 있으면 그걸 우선적으로 사용합니다.
-            pub_date = doc.get('PubDate', '')
-            epub_date = doc.get('EPubDate', '')
-            
-            if epub_date and len(epub_date) > len(pub_date):
-                display_date = epub_date
-            else:
-                display_date = pub_date
+            # [날짜 로직 수정: 무결성 보장]
+            # PubDate가 불완전할 경우를 대비해 History 데이터에서 실제 등록일(YYYY/MM/DD)을 추적합니다.
+            display_date = doc.get('EPubDate', '') or doc.get('PubDate', '')
+            history = doc.get('History', [])
+            for h in history:
+                # epublish(전자출판) 또는 pubmed(등록일) 상태의 상세 날짜를 우선 채택
+                if h.get('PubStatus') in ['epublish', 'pubmed']:
+                    raw_date = h.get('Date', '').split(' ')[0] # '2026/02/12' 형태 추출
+                    try:
+                        dt = datetime.strptime(raw_date, '%Y/%m/%d')
+                        display_date = dt.strftime('%Y %b %d') # '2026 Feb 12'로 변환
+                        break
+                    except:
+                        continue
             
             # Citation 구성
             source = doc.get('Source', '')
@@ -60,8 +64,7 @@ def fetch_pmc_new_articles(term):
             
             link = f"https://pmc.ncbi.nlm.nih.gov/articles/PMC{pmc_id}/"
             
-            # [출력 형식 수정]
-            # Citation:, Link: 글자 제거
+            # [출력 형식] 캐리지 리턴 반영 및 라벨 제거
             entry = f"[ {display_date} ]\n{title}\n{citation}\n{link}"
             
             articles.append(entry)
@@ -77,14 +80,13 @@ def send_email(articles):
     msg['From'] = TARGET_EMAIL
     msg['To'] = TARGET_EMAIL
     
-    # [수정] 결과가 있을 때와 없을 때 제목을 다르게 표시
     if articles:
         msg['Subject'] = f"[PMC 알림] 'biogems' 관련 새 논문 {len(articles)}건"
         body = f"검색어: {SEARCH_TERM}\n\n" + ("-" * 30) + "\n\n"
         body += "\n\n".join(articles)
     else:
         msg['Subject'] = f"[PMC 알림] 'biogems' 관련 새 논문 0건"
-        body = f"검색어: {SEARCH_TERM}\n\n최근 1일간 검색된 새로운 논문이 없습니다.\n시스템은 정상 작동 중입니다."
+        body = f"검색어: {SEARCH_TERM}\n\n최근 검색된 새로운 논문이 없습니다.\n시스템은 정상 작동 중입니다."
 
     msg.attach(MIMEText(body, 'plain'))
 
