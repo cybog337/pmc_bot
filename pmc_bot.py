@@ -7,7 +7,7 @@ from datetime import datetime
 
 # ================= 사용자 설정 =================
 TARGET_EMAIL = "cybog337@gmail.com"
-SEARCH_TERM = '"biogems" AND "last 60 days"[pdat]'  # ✅ 60일로 변경
+SEARCH_TERM = '"biogems" AND "last 1 day"[pdat]'  # ✅ 60일로 변경
 HISTORY_FILE = "sent_list_pubmed.txt"  # ✅ 추가
 
 Entrez.email = TARGET_EMAIL
