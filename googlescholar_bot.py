@@ -2,78 +2,70 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from serpapi import GoogleSearch # 구글 검색용 라이브러리
+from serpapi import GoogleSearch
 from datetime import datetime
 
 # ================= 사용자 설정 =================
 TARGET_EMAIL = "cybog337@gmail.com"
-
-# 검색어: biogems 포함, biogem 제외, cjter 제외
 SEARCH_QUERY = "biogems -biogem -cjter"
 
-# GitHub Secrets에서 키 가져오기
-GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD")
-SERPAPI_KEY = os.environ.get("SERPAPI_KEY") # 구글 스콜라 전용 키
+GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD") # ${{ secrets.MY_PASSWORD }}
+SERPAPI_KEY = os.environ.get("SERPAPI_KEY")
 # =============================================
 
-def fetch_scholar_new_articles():
-    if not SERPAPI_KEY:
-        print("❌ Error: SERPAPI_KEY가 없습니다. GitHub Settings > Secrets에 키를 등록해주세요.")
-        return []
+def fetch_scholar_full_scan():
+    if not SERPAPI_KEY: return []
+    all_articles = []
+    start_index = 0
+    
+    while start_index < 50: # 최대 5페이지까지 전수 조사
+        params = {
+            "engine": "google_scholar",
+            "q": SEARCH_QUERY,
+            "api_key": SERPAPI_KEY,
+            "as_ylo": "2026",
+            "start": start_index,
+            "hl": "ko"
+        }
+        try:
+            search = GoogleSearch(params)
+            results = search.get_dict()
+            organic_results = results.get("organic_results", [])
+            if not organic_results: break
 
-    # SerpApi 설정 (구글 스콜라 엔진 사용)
-    params = {
-        "engine": "google_scholar",
-        "q": SEARCH_QUERY,
-        "api_key": SERPAPI_KEY,
-        "scisbd": "1",  # 1 = 최신순 정렬 (Sort by date) - 가장 중요!
-        "num": "10",    # 최근 10개만 가져오기
-        "hl": "en"      # 언어 설정 (영어)
-    }
+            for result in organic_results:
+                all_articles.append({
+                    "title": result.get("title", "No Title"),
+                    "link": result.get("link", "#"),
+                    "info": result.get("publication_info", {}).get("summary", "No Info")
+                })
 
-    try:
-        print(f"Searching Google Scholar for: {SEARCH_QUERY} ...")
-        search = GoogleSearch(params)
-        results = search.get_dict()
-        
-        # 검색 결과가 없을 경우 처리
-        if "organic_results" not in results:
-            return []
+            if "next" in results.get("serpapi_pagination", {}):
+                start_index += 10
+            else: break
+        except: break
+    return all_articles
 
-        organic_results = results["organic_results"]
-        articles = []
-
-        for result in organic_results:
-            title = result.get("title", "No Title")
-            link = result.get("link", "#")
-            snippet = result.get("snippet", "No Snippet")
-            
-            # 출판 정보 (저자, 저널, 연도 등)
-            pub_info = result.get("publication_info", {}).get("summary", "")
-
-            # 메일 본문 포맷
-            entry = f"[New] {title}\nInfo: {pub_info}\nSnippet: {snippet}\nLink: {link}"
-            articles.append(entry)
-
-        return articles
-
-    except Exception as e:
-        print(f"Error fetching Scholar data: {e}")
-        return []
-
-def send_email(articles):
+def send_final_report(articles):
     msg = MIMEMultipart()
     msg['From'] = TARGET_EMAIL
     msg['To'] = TARGET_EMAIL
     
-    # [수정] 결과가 있을 때와 없을 때 제목을 다르게 표시
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    count = len(articles)
+    
+    # 제목 양식 통일
+    msg['Subject'] = f"[Scholar] {date_str} 신규 논문 알림 ({count}건)"
+    
     if articles:
-        msg['Subject'] = f"[Scholar 알림] 'biogems' 관련 최신 논문 {len(articles)}건"
-        body = f"검색어: {SEARCH_QUERY}\n(옵션: 최신순 정렬)\n\n" + ("-" * 30) + "\n\n"
-        body += "\n\n".join(articles)
+        # PMC 예시 양식과 동일하게 구성
+        body_parts = []
+        for item in articles:
+            part = f"[ 2026 Feb ]\n{item['title']}\n{item['info']}\n{item['link']}"
+            body_parts.append(part)
+        body = "\n\n".join(body_parts)
     else:
-        msg['Subject'] = f"[Scholar 알림] 'biogems' 관련 최신 논문 0건"
-        body = f"검색어: {SEARCH_QUERY}\n\n최근 등록된 새로운 논문이 없습니다.\n시스템은 정상 작동 중입니다."
+        body = "신규 논문이 없습니다."
     
     msg.attach(MIMEText(body, 'plain'))
 
@@ -83,15 +75,9 @@ def send_email(articles):
         server.login(TARGET_EMAIL, GMAIL_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print(f"✅ 이메일 발송 완료! ({len(articles)}건)")
-    except Exception as e:
-        print(f"❌ 이메일 발송 실패: {e}")
+    except: pass
 
 if __name__ == "__main__":
-    if not GMAIL_PASSWORD:
-        print("Error: GMAIL_PASSWORD가 설정되지 않았습니다.")
-    elif not SERPAPI_KEY:
-        print("Error: SERPAPI_KEY가 설정되지 않았습니다.")
-    else:
-        new_articles = fetch_scholar_new_articles()
-        send_email(new_articles)
+    if GMAIL_PASSWORD and SERPAPI_KEY:
+        found = fetch_scholar_full_scan()
+        send_final_report(found)
