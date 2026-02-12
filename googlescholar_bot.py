@@ -6,8 +6,6 @@ from email.mime.multipart import MIMEMultipart
 from serpapi import GoogleSearch
 from datetime import datetime
 
-# === 제미나이가 개판이라 클로드 4.5로 새로 짬 ===
-
 # ================= 사용자 설정 =================
 TARGET_EMAIL = "cybog337@gmail.com"
 SEARCH_QUERY = "biogems -biogem -cjter"
@@ -36,20 +34,17 @@ def extract_date_info(pub_info, snippet=""):
     publication_info와 snippet에서 동적으로 날짜 추출
     예: "2026 Jan", "2026 Feb" 등
     """
-    # 연도와 월 패턴 매칭 (Jan, Feb, Mar, ... Dec)
     combined_text = pub_info + " " + snippet
     
-    # 패턴: 2026 Jan, 2026 Feb 등
     match = re.search(r'(202[0-9])\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)', combined_text)
     if match:
         return f"{match.group(1)} {match.group(2)}"
     
-    # 연도만 있는 경우
     match_year = re.search(r'202[0-9]', combined_text)
     if match_year:
         return match_year.group(0)
     
-    return "2026"  # 기본값
+    return "2026"
 
 def fetch_scholar_data():
     """Google Scholar에서 전체 데이터 수집"""
@@ -65,8 +60,8 @@ def fetch_scholar_data():
             "q": SEARCH_QUERY,
             "api_key": SERPAPI_KEY,
             "as_ylo": "2026",
-            "as_sdt": "0,5",  # 인용/특허 포함 (31건 확보)
-            "filter": "0",    # 유사 결과 생략 해제
+            "as_sdt": "0,5",
+            "filter": "0",
             "start": start_index,
             "hl": "ko"
         }
@@ -83,7 +78,6 @@ def fetch_scholar_data():
                 pub_info = result.get("publication_info", {}).get("summary", "")
                 snippet = result.get("snippet", "")
                 
-                # 동적 날짜 추출
                 date_str = extract_date_info(pub_info, snippet)
                 
                 all_articles.append({
@@ -93,7 +87,6 @@ def fetch_scholar_data():
                     "date": date_str
                 })
 
-            # 다음 페이지 확인
             if "next" in results.get("serpapi_pagination", {}):
                 start_index += 10
             else: 
@@ -126,6 +119,42 @@ def send_report(articles):
     if articles:
         body_parts = []
         for item in articles:
-            # PMC 양식: [날짜], 제목, 저자/저널, URL
             part = f"[ {item['date']} ]\n{item['title']}\n{item['info']}\n{item['link']}"
-            body_parts.append(
+            body_parts.append(part)
+        
+        body = "\n\n".join(body_parts)
+    else:
+        body = "신규 논문이 없습니다."
+    
+    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(TARGET_EMAIL, GMAIL_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        print(f"메일 발송 완료: {count}건")
+        return True
+    except Exception as e:
+        print(f"메일 발송 실패: {e}")
+        return False
+
+if __name__ == "__main__":
+    if not GMAIL_PASSWORD or not SERPAPI_KEY:
+        print("환경변수 설정 필요: GMAIL_PASSWORD, SERPAPI_KEY")
+        exit(1)
+    
+    sent_history = load_sent_history()
+    print(f"기존 이력: {len(sent_history)}건")
+    
+    all_articles = fetch_scholar_data()
+    print(f"검색 결과: {len(all_articles)}건")
+    
+    new_articles = filter_new_articles(all_articles, sent_history)
+    print(f"신규 논문: {len(new_articles)}건")
+    
+    if send_report(new_articles):
+        new_urls = [article["link"] for article in new_articles]
+        save_sent_history(new_urls)
+        print("이력 업데이트 완료")
