@@ -1,18 +1,19 @@
 import os
 import re
 import smtplib
+import requests
+from bs4 import BeautifulSoup
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from serpapi import GoogleSearch
 from datetime import datetime
+import time
 
 # ================= 사용자 설정 =================
 TARGET_EMAIL = "cybog337@gmail.com"
 SEARCH_QUERY = "biogems -biogem -cjter"
-HISTORY_FILE = "sent_list.txt"
+HISTORY_FILE = "sent_list_scholar.txt"
 
-GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD") 
-SERPAPI_KEY = os.environ.get("SERPAPI_KEY")
+GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD")
 # =============================================
 
 def load_sent_history():
@@ -29,77 +30,77 @@ def save_sent_history(urls):
         for url in urls:
             f.write(url + '\n')
 
-def extract_date_info(pub_info, snippet=""):
-    """
-    publication_info와 snippet에서 동적으로 날짜 추출
-    예: "2026 Jan", "2026 Feb" 등
-    """
-    combined_text = pub_info + " " + snippet
-    
-    match = re.search(r'(202[0-9])\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)', combined_text)
+def extract_date_info(text):
+    """날짜 정보 추출"""
+    match = re.search(r'(202[0-9])\s*-?\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)?', text)
     if match:
-        return f"{match.group(1)} {match.group(2)}"
-    
-    match_year = re.search(r'202[0-9]', combined_text)
-    if match_year:
-        return match_year.group(0)
-    
+        year = match.group(1)
+        month = match.group(2) if match.group(2) else ""
+        return f"{year} {month}".strip()
     return "2026"
 
-def fetch_scholar_data():
-    """Google Scholar에서 전체 데이터 수집"""
-    if not SERPAPI_KEY: 
-        return []
-    
+def fetch_scholar_data_html():
+    """Google Scholar HTML 직접 파싱"""
     all_articles = []
     start_index = 0
     page_num = 1
     
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
     while True:
-        params = {
-            "engine": "google_scholar",
-            "q": SEARCH_QUERY,
-            "api_key": SERPAPI_KEY,
-            "as_ylo": "2026",
-            "as_sdt": "0,5",
-            "filter": "0",
-            "start": start_index,
-            "hl": "ko",
-            "num": 20  # ✅ 추가: 페이지당 결과 수를 20개로 증가
-        }
+        url = f"https://scholar.google.com/scholar?q={SEARCH_QUERY}&hl=ko&as_sdt=0,5&as_ylo=2026&filter=0&start={start_index}"
         
         try:
-            search = GoogleSearch(params)
-            results = search.get_dict()
-            organic_results = results.get("organic_results", [])
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
             
-            # ✅ 디버깅 로그 추가
-            print(f"Page {page_num}: {len(organic_results)}건 수집 (start={start_index})")
+            results = soup.find_all('div', class_='gs_ri')
             
-            if not organic_results: 
+            print(f"Page {page_num}: {len(results)}건 수집 (start={start_index})")
+            
+            if not results:
                 break
-
-            for result in organic_results:
-                pub_info = result.get("publication_info", {}).get("summary", "")
-                snippet = result.get("snippet", "")
+            
+            for result in results:
+                # 제목 추출
+                title_tag = result.find('h3', class_='gs_rt')
+                if title_tag:
+                    # 링크 추출
+                    link_tag = title_tag.find('a')
+                    title = title_tag.get_text(strip=True)
+                    link = link_tag['href'] if link_tag and link_tag.has_attr('href') else "No Link"
+                else:
+                    title = "No Title"
+                    link = "No Link"
                 
-                date_str = extract_date_info(pub_info, snippet)
+                # 저자/저널 정보 추출
+                info_tag = result.find('div', class_='gs_a')
+                info = info_tag.get_text(strip=True) if info_tag else "정보 없음"
+                
+                # 날짜 추출
+                date_str = extract_date_info(info)
                 
                 all_articles.append({
-                    "title": result.get("title", "No Title"),
-                    "link": result.get("link", "No Link"),
-                    "info": pub_info if pub_info else "정보 없음",
+                    "title": title,
+                    "link": link,
+                    "info": info,
                     "date": date_str
                 })
-
-            if "next" in results.get("serpapi_pagination", {}):
-                start_index += 20  # ✅ 수정: 20씩 증가
+            
+            # 다음 페이지 확인
+            next_button = soup.find('button', {'aria-label': '다음 페이지'}) or soup.find('a', string='다음')
+            if next_button and not next_button.get('disabled'):
+                start_index += 10
                 page_num += 1
-            else: 
+                time.sleep(2)  # Google 차단 방지
+            else:
                 break
                 
         except Exception as e:
-            print(f"Error fetching data: {e}")
+            print(f"Error fetching page {page_num}: {e}")
             break
     
     print(f"총 수집 건수: {len(all_articles)}건")
@@ -114,7 +115,7 @@ def filter_new_articles(all_articles, sent_urls):
     return new_articles
 
 def send_report(articles):
-    """메일 발송 (PMC 양식)"""
+    """메일 발송"""
     msg = MIMEMultipart()
     msg['From'] = TARGET_EMAIL
     msg['To'] = TARGET_EMAIL
@@ -148,14 +149,14 @@ def send_report(articles):
         return False
 
 if __name__ == "__main__":
-    if not GMAIL_PASSWORD or not SERPAPI_KEY:
-        print("환경변수 설정 필요: GMAIL_PASSWORD, SERPAPI_KEY")
+    if not GMAIL_PASSWORD:
+        print("환경변수 설정 필요: GMAIL_PASSWORD")
         exit(1)
     
     sent_history = load_sent_history()
     print(f"기존 이력: {len(sent_history)}건")
     
-    all_articles = fetch_scholar_data()
+    all_articles = fetch_scholar_data_html()
     print(f"검색 결과: {len(all_articles)}건")
     
     new_articles = filter_new_articles(all_articles, sent_history)
