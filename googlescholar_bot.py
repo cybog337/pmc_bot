@@ -62,6 +62,7 @@ def fetch_scholar_data_html():
             print(f"Page {page_num}: {len(results)}건 수집 (start={start_index})")
             
             if not results:
+                print("더 이상 결과가 없습니다.")
                 break
             
             for result in results:
@@ -90,14 +91,25 @@ def fetch_scholar_data_html():
                     "date": date_str
                 })
             
-            # 다음 페이지 확인
-            next_button = soup.find('button', {'aria-label': '다음 페이지'}) or soup.find('a', string='다음')
-            if next_button and not next_button.get('disabled'):
-                start_index += 10
-                page_num += 1
-                time.sleep(2)  # Google 차단 방지
-            else:
+            # ✅ 수정: 다음 페이지 버튼 확인 (여러 방법 시도)
+            # 방법 1: 다음 페이지 링크 찾기
+            next_link = soup.find('a', {'aria-label': 'Next'})
+            if not next_link:
+                # 방법 2: 페이지네이션에서 다음 버튼 찾기
+                next_link = soup.find('td', {'align': 'left'})
+                if next_link:
+                    next_link = next_link.find('a')
+            
+            # 방법 3: start 파라미터로 간단하게 체크
+            # 결과가 10개 미만이면 마지막 페이지
+            if len(results) < 10:
+                print("마지막 페이지 도달")
                 break
+            
+            # 다음 페이지로 진행
+            start_index += 10
+            page_num += 1
+            time.sleep(3)  # ✅ 차단 방지를 위해 3초로 증가
                 
         except Exception as e:
             print(f"Error fetching page {page_num}: {e}")
@@ -105,6 +117,7 @@ def fetch_scholar_data_html():
     
     print(f"총 수집 건수: {len(all_articles)}건")
     return all_articles
+
 
 def filter_new_articles(all_articles, sent_urls):
     """이미 발송한 논문 제외하고 신규만 필터링"""
