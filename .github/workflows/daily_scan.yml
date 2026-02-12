@@ -44,6 +44,6 @@ jobs:
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
-        git add sent_list.txt
-        git diff --quiet && git diff --staged --quiet || git commit -m "Update sent_list.txt [skip ci]"
+        git add sent_list.txt sent_list_pubmed.txt sent_list_scholar.txt  # ✅ 모든 이력 파일 추가
+        git diff --quiet && git diff --staged --quiet || git commit -m "Update history files [skip ci]"
         git push
