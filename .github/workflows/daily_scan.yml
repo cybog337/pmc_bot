@@ -9,12 +9,15 @@ on:
 jobs:
   run-search:
     runs-on: ubuntu-latest
+    permissions:  # ✅ 추가
+      contents: write  # ✅ 추가
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
       with:
-        fetch-depth: 0  # ✅ 추가됨
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}  # ✅ 추가
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -36,7 +39,6 @@ jobs:
         SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
       run: python googlescholar_bot.py
     
-    # ✅ 아래 전체 블록 추가됨
     - name: Commit and push history file
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
