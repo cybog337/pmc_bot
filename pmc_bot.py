@@ -9,7 +9,7 @@ from datetime import datetime
 # ================= 사용자 설정 =================
 TARGET_EMAIL = "cybog337@gmail.com"
 SEARCH_QUERY = "biogems -biogem -cjter"
-HISTORY_FILE = "sent_list.txt"
+HISTORY_FILE = "sent_list_pubmed.txt"  # ✅ 변경
 
 GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD") 
 SERPAPI_KEY = os.environ.get("SERPAPI_KEY")
@@ -29,25 +29,23 @@ def save_sent_history(urls):
         for url in urls:
             f.write(url + '\n')
 
-def extract_date_info(pub_info, snippet=""):
+def extract_date_info(pub_date):
     """
-    publication_info와 snippet에서 동적으로 날짜 추출
+    PubMed 날짜 정보 추출
     예: "2026 Jan", "2026 Feb" 등
     """
-    combined_text = pub_info + " " + snippet
-    
-    match = re.search(r'(202[0-9])\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)', combined_text)
+    match = re.search(r'(202[0-9])\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)', pub_date)
     if match:
         return f"{match.group(1)} {match.group(2)}"
     
-    match_year = re.search(r'202[0-9]', combined_text)
+    match_year = re.search(r'202[0-9]', pub_date)
     if match_year:
         return match_year.group(0)
     
     return "2026"
 
-def fetch_scholar_data():
-    """Google Scholar에서 전체 데이터 수집"""
+def fetch_pubmed_data():  # ✅ 함수명 변경
+    """PubMed에서 전체 데이터 수집"""  # ✅ 주석 변경
     if not SERPAPI_KEY: 
         return []
     
@@ -57,15 +55,11 @@ def fetch_scholar_data():
     
     while True:
         params = {
-            "engine": "google_scholar",
+            "engine": "pubmed",  # ✅ 변경: google_scholar → pubmed
             "q": SEARCH_QUERY,
             "api_key": SERPAPI_KEY,
-            "as_ylo": "2026",
-            "as_sdt": "0,5",
-            "filter": "0",
             "start": start_index,
-            "hl": "ko",
-            "num": 20  # ✅ 추가: 페이지당 결과 수를 20개로 증가
+            "num": 20
         }
         
         try:
@@ -73,27 +67,27 @@ def fetch_scholar_data():
             results = search.get_dict()
             organic_results = results.get("organic_results", [])
             
-            # ✅ 디버깅 로그 추가
             print(f"Page {page_num}: {len(organic_results)}건 수집 (start={start_index})")
             
             if not organic_results: 
                 break
 
             for result in organic_results:
-                pub_info = result.get("publication_info", {}).get("summary", "")
+                # ✅ PubMed 응답 구조에 맞게 수정
+                pub_date = result.get("date", "")
                 snippet = result.get("snippet", "")
                 
-                date_str = extract_date_info(pub_info, snippet)
+                date_str = extract_date_info(pub_date + " " + snippet)
                 
                 all_articles.append({
                     "title": result.get("title", "No Title"),
                     "link": result.get("link", "No Link"),
-                    "info": pub_info if pub_info else "정보 없음",
+                    "info": snippet if snippet else "정보 없음",
                     "date": date_str
                 })
 
             if "next" in results.get("serpapi_pagination", {}):
-                start_index += 20  # ✅ 수정: 20씩 증가
+                start_index += 20
                 page_num += 1
             else: 
                 break
@@ -121,7 +115,7 @@ def send_report(articles):
     
     date_str = datetime.now().strftime("%Y-%m-%d")
     count = len(articles)
-    msg['Subject'] = f"[Scholar] {date_str} 신규 논문 알림 ({count}건)"
+    msg['Subject'] = f"[PubMed] {date_str} 신규 논문 알림 ({count}건)"  # ✅ 변경
     
     if articles:
         body_parts = []
@@ -155,7 +149,7 @@ if __name__ == "__main__":
     sent_history = load_sent_history()
     print(f"기존 이력: {len(sent_history)}건")
     
-    all_articles = fetch_scholar_data()
+    all_articles = fetch_pubmed_data()  # ✅ 변경
     print(f"검색 결과: {len(all_articles)}건")
     
     new_articles = filter_new_articles(all_articles, sent_history)
