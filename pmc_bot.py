@@ -6,22 +6,16 @@ from Bio import Entrez
 from datetime import datetime
 
 # ================= 사용자 설정 =================
-# 받는 이메일
 TARGET_EMAIL = "cybog337@gmail.com"
-
-# 검색어: "biogems" AND "last 14 days"[pdat]
 SEARCH_TERM = '"biogems" AND "last 14 days"[pdat]'
 
-# NCBI 접속용 이메일
 Entrez.email = TARGET_EMAIL
-
-# GitHub Secrets에서 비밀번호 가져오기
 GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD")
 # =============================================
 
 def fetch_pmc_new_articles(term):
     try:
-        # 1. 검색 실행 (최신순 정렬)
+        # 1. 검색 실행
         handle = Entrez.esearch(db="pmc", term=term, retmax=20, sort='pub_date')
         record = Entrez.read(handle)
         handle.close()
@@ -40,32 +34,35 @@ def fetch_pmc_new_articles(term):
         articles = []
         for doc in summary_record:
             pmc_id = doc['Id']
-            
-            # 정보 추출 (없을 경우 빈칸 처리)
             title = doc.get('Title', 'No Title')
-            pub_date = doc.get('PubDate', 'Date Unknown') # 보통 'YYYY Mon DD' 형식
-            source = doc.get('Source', '')   # 저널명
-            volume = doc.get('Volume', '')   # 권
-            issue = doc.get('Issue', '')     # 호
-            pages = doc.get('Pages', '')     # 페이지
             
-            # Citation 구성 (예: Nature. 2024;10(2):100-110.)
+            # [날짜 로직 개선]
+            # PubDate(출판일)는 월까지만 있는 경우가 많으므로,
+            # EPubDate(전자출판일)가 있으면 그걸 우선적으로 사용합니다.
+            pub_date = doc.get('PubDate', '')
+            epub_date = doc.get('EPubDate', '')
+            
+            if epub_date and len(epub_date) > len(pub_date):
+                display_date = epub_date
+            else:
+                display_date = pub_date
+            
+            # Citation 구성
+            source = doc.get('Source', '')
+            volume = doc.get('Volume', '')
+            issue = doc.get('Issue', '')
+            pages = doc.get('Pages', '')
+            
             citation = f"{source}"
-            if volume:
-                citation += f". {volume}"
-            if issue:
-                citation += f"({issue})"
-            if pages:
-                citation += f":{pages}."
+            if volume: citation += f". {volume}"
+            if issue:  citation += f"({issue})"
+            if pages:  citation += f":{pages}."
             
             link = f"https://pmc.ncbi.nlm.nih.gov/articles/PMC{pmc_id}/"
             
-            # 요청하신 포맷 적용
-            # 1. [ 날짜 ]
-            # 2. (줄바꿈) 논문 제목
-            # 3. (줄바꿈) Citation
-            # 4. (줄바꿈) 링크
-            entry = f"[ {pub_date} ]\n{title}\nCitation: {citation}\nLink: {link}"
+            # [출력 형식 수정]
+            # Citation:, Link: 글자 제거
+            entry = f"[ {display_date} ]\n{title}\n{citation}\n{link}"
             
             articles.append(entry)
             
@@ -85,7 +82,7 @@ def send_email(articles):
     msg['To'] = TARGET_EMAIL
     msg['Subject'] = f"[PMC 알림] 'biogems' 관련 새 논문 {len(articles)}건"
 
-    # 메일 본문 구성 (가독성을 위해 항목 간 줄바꿈 추가)
+    # 본문 구분선 추가
     body = f"검색어: {SEARCH_TERM}\n\n" + ("-" * 30) + "\n\n"
     body += "\n\n".join(articles)
     
