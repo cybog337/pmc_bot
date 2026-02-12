@@ -9,10 +9,10 @@ from datetime import datetime
 # 받는 이메일
 TARGET_EMAIL = "cybog337@gmail.com"
 
-# 검색어: 보내주신 URL의 조건 그대로 적용 ("biogems" AND "last 14 days"[pdat])
+# 검색어: "biogems" AND "last 14 days"[pdat]
 SEARCH_TERM = '"biogems" AND "last 14 days"[pdat]'
 
-# NCBI 접속용 이메일 (필수)
+# NCBI 접속용 이메일
 Entrez.email = TARGET_EMAIL
 
 # GitHub Secrets에서 비밀번호 가져오기
@@ -21,8 +21,7 @@ GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD")
 
 def fetch_pmc_new_articles(term):
     try:
-        # 1. PMC 데이터베이스에서 검색 (db="pmc")
-        # sort='pub_date': 최신순 정렬 (URL의 &sort=pubdate 반영)
+        # 1. 검색 실행 (최신순 정렬)
         handle = Entrez.esearch(db="pmc", term=term, retmax=20, sort='pub_date')
         record = Entrez.read(handle)
         handle.close()
@@ -33,22 +32,42 @@ def fetch_pmc_new_articles(term):
         if count == 0:
             return []
 
-        # 2. 요약 정보 가져오기
+        # 2. 상세 정보 가져오기
         handle = Entrez.esummary(db="pmc", id=",".join(id_list))
         summary_record = Entrez.read(handle)
         handle.close()
         
         articles = []
         for doc in summary_record:
-            # PMC 데이터에서는 'Id'가 곧 PMCID 번호입니다.
-            pmc_id = doc['Id'] 
-            title = doc.get('Title', '제목 없음')
-            pub_date = doc.get('PubDate', '날짜 미상')
+            pmc_id = doc['Id']
             
-            # 보내주신 링크 형식인 pmc.ncbi.nlm.nih.gov 도메인 적용
+            # 정보 추출 (없을 경우 빈칸 처리)
+            title = doc.get('Title', 'No Title')
+            pub_date = doc.get('PubDate', 'Date Unknown') # 보통 'YYYY Mon DD' 형식
+            source = doc.get('Source', '')   # 저널명
+            volume = doc.get('Volume', '')   # 권
+            issue = doc.get('Issue', '')     # 호
+            pages = doc.get('Pages', '')     # 페이지
+            
+            # Citation 구성 (예: Nature. 2024;10(2):100-110.)
+            citation = f"{source}"
+            if volume:
+                citation += f". {volume}"
+            if issue:
+                citation += f"({issue})"
+            if pages:
+                citation += f":{pages}."
+            
             link = f"https://pmc.ncbi.nlm.nih.gov/articles/PMC{pmc_id}/"
             
-            articles.append(f"[{pub_date}] {title}\nLink: {link}")
+            # 요청하신 포맷 적용
+            # 1. [ 날짜 ]
+            # 2. (줄바꿈) 논문 제목
+            # 3. (줄바꿈) Citation
+            # 4. (줄바꿈) 링크
+            entry = f"[ {pub_date} ]\n{title}\nCitation: {citation}\nLink: {link}"
+            
+            articles.append(entry)
             
         return articles
 
@@ -58,7 +77,7 @@ def fetch_pmc_new_articles(term):
 
 def send_email(articles):
     if not articles:
-        print("검색 결과가 0건이라 메일을 보내지 않습니다.")
+        print("검색 결과가 없습니다.")
         return
 
     msg = MIMEMultipart()
@@ -66,7 +85,10 @@ def send_email(articles):
     msg['To'] = TARGET_EMAIL
     msg['Subject'] = f"[PMC 알림] 'biogems' 관련 새 논문 {len(articles)}건"
 
-    body = f"설정하신 검색어: {SEARCH_TERM}\n\n" + "\n\n".join(articles)
+    # 메일 본문 구성 (가독성을 위해 항목 간 줄바꿈 추가)
+    body = f"검색어: {SEARCH_TERM}\n\n" + ("-" * 30) + "\n\n"
+    body += "\n\n".join(articles)
+    
     msg.attach(MIMEText(body, 'plain'))
 
     try:
