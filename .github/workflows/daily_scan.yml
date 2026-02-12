@@ -2,9 +2,9 @@ name: BioGems Daily Search
 
 on:
   schedule:
-    # UTC 21:00 = 한국 시간 익일 오전 06:00
+    # 한국 시간 오전 6시 (UTC 21:00)
     - cron: '0 21 * * *'
-  workflow_dispatch: # 수동 실행 버튼 활성화
+  workflow_dispatch: # 수동 실행 버튼
 
 jobs:
   run-search:
@@ -25,6 +25,6 @@ jobs:
 
     - name: Run Alert Script
       env:
-        # GitHub Settings > Secrets에 저장된 앱 비밀번호를 불러옵니다.
+        # 여기가 핵심입니다! 이 부분이 있어야 파이썬이 비밀번호를 읽습니다.
         GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
       run: python pmc_bot.py
