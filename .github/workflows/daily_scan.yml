@@ -30,6 +30,6 @@ jobs:
       run: python pmc_bot.py
     - name: Run Google Scholar Bot
       env:
-        GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+        GMAIL_PASSWORD: ${{ secrets.MY_PASSWORD }}
         SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
       run: python googlescholar_bot.py
