@@ -59,7 +59,7 @@ def fetch_pmc_articles():
         return None, 0
 
 def send_email(articles, count):
-    """메일 발송 (UTF-8 인코딩 수정됨)"""
+    """메일 발송 (인코딩 에러 수정 완료)"""
     msg = MIMEMultipart()
     msg['From'] = SENDER_EMAIL
     msg['To'] = RECEIVER_EMAIL
@@ -90,7 +90,7 @@ def send_email(articles, count):
         <p style="color: gray; font-size: 12px;">내일 아침 7시에 다시 확인합니다.</p>
         """
 
-    # [중요 수정] 'utf-8'을 명시하여 한글 깨짐 방지
+    # [핵심 수정] utf-8을 강제로 지정하여 에러 방지
     msg.attach(MIMEText(html_body, 'html', 'utf-8'))
 
     try:
@@ -98,7 +98,7 @@ def send_email(articles, count):
         server.starttls()
         server.login(SENDER_EMAIL, APP_PASSWORD)
         
-        # [중요 수정] sendmail 대신 send_message 사용 (자동으로 인코딩 처리)
+        # [핵심 수정] send_message() 사용 (파이썬 3 권장 방식)
         server.send_message(msg)
         
         server.quit()
@@ -108,5 +108,6 @@ def send_email(articles, count):
 
 if __name__ == "__main__":
     data, count = fetch_pmc_articles()
+    # 데이터가 None이 아닐 때만 실행 (빈 리스트 []일 때도 실행되어야 '없음' 메일이 감)
     if data is not None:
         send_email(data, count)
