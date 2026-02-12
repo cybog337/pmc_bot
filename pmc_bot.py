@@ -73,19 +73,19 @@ def fetch_pmc_new_articles(term):
         return []
 
 def send_email(articles):
-    if not articles:
-        print("검색 결과가 없습니다.")
-        return
-
     msg = MIMEMultipart()
     msg['From'] = TARGET_EMAIL
     msg['To'] = TARGET_EMAIL
-    msg['Subject'] = f"[PMC 알림] 'biogems' 관련 새 논문 {len(articles)}건"
-
-    # 본문 구분선 추가
-    body = f"검색어: {SEARCH_TERM}\n\n" + ("-" * 30) + "\n\n"
-    body += "\n\n".join(articles)
     
+    # [수정] 결과가 있을 때와 없을 때 제목을 다르게 표시
+    if articles:
+        msg['Subject'] = f"[PMC 알림] 'biogems' 관련 새 논문 {len(articles)}건"
+        body = f"검색어: {SEARCH_TERM}\n\n" + ("-" * 30) + "\n\n"
+        body += "\n\n".join(articles)
+    else:
+        msg['Subject'] = f"[PMC 알림] 'biogems' 관련 새 논문 0건"
+        body = f"검색어: {SEARCH_TERM}\n\n최근 1일간 검색된 새로운 논문이 없습니다.\n시스템은 정상 작동 중입니다."
+
     msg.attach(MIMEText(body, 'plain'))
 
     try:
@@ -94,7 +94,7 @@ def send_email(articles):
         server.login(TARGET_EMAIL, GMAIL_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print(f"✅ 이메일 발송 성공! ({len(articles)}건)")
+        print(f"✅ 이메일 발송 완료! ({len(articles)}건)")
     except Exception as e:
         print(f"❌ 이메일 발송 실패: {e}")
 
