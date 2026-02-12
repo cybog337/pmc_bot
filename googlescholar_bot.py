@@ -9,7 +9,7 @@ from datetime import datetime
 TARGET_EMAIL = "cybog337@gmail.com"
 SEARCH_QUERY = "biogems -biogem -cjter"
 
-GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD") # ${{ secrets.MY_PASSWORD }}
+GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD") 
 SERPAPI_KEY = os.environ.get("SERPAPI_KEY")
 # =============================================
 
@@ -18,13 +18,14 @@ def fetch_scholar_full_scan():
     all_articles = []
     start_index = 0
     
-    while start_index < 50: # 최대 5페이지까지 전수 조사
+    while True:
         params = {
             "engine": "google_scholar",
             "q": SEARCH_QUERY,
             "api_key": SERPAPI_KEY,
             "as_ylo": "2026",
             "start": start_index,
+            "filter": "0",  # 유사 결과 생략 해제 (31건 전체 수집 핵심)
             "hl": "ko"
         }
         try:
@@ -54,13 +55,13 @@ def send_final_report(articles):
     date_str = datetime.now().strftime("%Y-%m-%d")
     count = len(articles)
     
-    # 제목 양식 통일
+    # PMC와 동일한 제목 양식
     msg['Subject'] = f"[Scholar] {date_str} 신규 논문 알림 ({count}건)"
     
     if articles:
-        # PMC 예시 양식과 동일하게 구성
         body_parts = []
         for item in articles:
+            # 철홍 님이 주신 PMC 예시 양식 100% 반영
             part = f"[ 2026 Feb ]\n{item['title']}\n{item['info']}\n{item['link']}"
             body_parts.append(part)
         body = "\n\n".join(body_parts)
