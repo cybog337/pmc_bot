@@ -27,4 +27,4 @@ jobs:
       env:
         # GitHub Settings > Secrets에 저장된 앱 비밀번호를 불러옵니다.
         GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
-      run: python pmc_alert.py
+      run: python pmc_bot.py
