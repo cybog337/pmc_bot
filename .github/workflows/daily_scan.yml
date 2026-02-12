@@ -1,0 +1,22 @@
+name: Daily PMC Search
+
+on:
+  schedule:
+    - cron: '0 22 * * *' # 매일 아침 7시 (한국시간)
+  workflow_dispatch:
+
+jobs:
+  run-search:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    - run: pip install biopython
+    - name: 검색 봇 실행
+      env:
+        MY_EMAIL: ${{ secrets.MY_EMAIL }}
+        MY_PASSWORD: ${{ secrets.MY_PASSWORD }}
+        TO_EMAIL: ${{ secrets.TO_EMAIL }}
+      run: python pmc_bot.py
