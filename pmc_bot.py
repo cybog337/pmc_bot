@@ -7,7 +7,7 @@ from datetime import datetime
 
 # ================= 사용자 설정 =================
 TARGET_EMAIL = "cybog337@gmail.com"
-SEARCH_TERM = '"biogems" AND "last 60 days"[pdat]'
+SEARCH_TERM = '"biogems" AND "last 1 day"[pdat]'
 
 Entrez.email = TARGET_EMAIL
 GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD")
