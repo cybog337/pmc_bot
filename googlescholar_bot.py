@@ -9,7 +9,7 @@ from datetime import datetime
 # ================= 사용자 설정 =================
 TARGET_EMAIL = "cybog337@gmail.com"
 SEARCH_QUERY = "biogems -biogem -cjter"
-HISTORY_FILE = "sent_list.txt"
+HISTORY_FILE = "sent_list_scholar.txt"  # ✅ 변경
 
 GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD") 
 SERPAPI_KEY = os.environ.get("SERPAPI_KEY")
