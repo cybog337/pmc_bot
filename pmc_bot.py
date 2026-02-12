@@ -6,12 +6,11 @@ from Bio import Entrez
 from datetime import datetime, timezone, timedelta
 
 # ================= 사용자 설정 =================
-# GitHub Secrets(비밀 금고)에서 정보를 가져옵니다.
-SENDER_EMAIL = os.environ.get("MY_EMAIL")      # 보내는 사람
-APP_PASSWORD = os.environ.get("MY_PASSWORD")   # 여기에 비밀번호가 들어옵니다 (자동)
-RECEIVER_EMAIL = os.environ.get("TO_EMAIL")    # 받는 사람
+SENDER_EMAIL = os.environ.get("MY_EMAIL")
+APP_PASSWORD = os.environ.get("MY_PASSWORD")
+RECEIVER_EMAIL = os.environ.get("TO_EMAIL")
 
-# 검색어 설정 (수정 가능)
+# 검색어 설정
 SEARCH_QUERY = "biogems"
 
 Entrez.email = SENDER_EMAIL 
@@ -60,12 +59,11 @@ def fetch_pmc_articles():
         return None, 0
 
 def send_email(articles, count):
-    """메일 발송"""
+    """메일 발송 (UTF-8 인코딩 수정됨)"""
     msg = MIMEMultipart()
     msg['From'] = SENDER_EMAIL
     msg['To'] = RECEIVER_EMAIL
     
-    # 한국 시간 (UTC+9)
     kst_now = datetime.now(timezone.utc) + timedelta(hours=9)
     date_str = kst_now.strftime("%Y-%m-%d")
 
@@ -92,13 +90,17 @@ def send_email(articles, count):
         <p style="color: gray; font-size: 12px;">내일 아침 7시에 다시 확인합니다.</p>
         """
 
-    msg.attach(MIMEText(html_body, 'html'))
+    # [중요 수정] 'utf-8'을 명시하여 한글 깨짐 방지
+    msg.attach(MIMEText(html_body, 'html', 'utf-8'))
 
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login(SENDER_EMAIL, APP_PASSWORD) # 여기서 앱 비밀번호 사용
-        server.sendmail(SENDER_EMAIL, RECEIVER_EMAIL, msg.as_string())
+        server.login(SENDER_EMAIL, APP_PASSWORD)
+        
+        # [중요 수정] sendmail 대신 send_message 사용 (자동으로 인코딩 처리)
+        server.send_message(msg)
+        
         server.quit()
         print(f"✅ '{RECEIVER_EMAIL}'로 메일 발송 완료!")
     except Exception as e:
