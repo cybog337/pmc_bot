@@ -1,128 +1,106 @@
 import os
-import re
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from serpapi import GoogleSearch
+from Bio import Entrez
 from datetime import datetime
 
 # ================= 사용자 설정 =================
 TARGET_EMAIL = "cybog337@gmail.com"
-SEARCH_QUERY = "biogems -biogem -cjter"
-HISTORY_FILE = "sent_list_pubmed.txt"  # ✅ 변경
+SEARCH_TERM = '"biogems" AND "last 60 days"[pdat]'  # ✅ 60일로 변경
+HISTORY_FILE = "sent_list_pubmed.txt"  # ✅ 추가
 
-GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD") 
-SERPAPI_KEY = os.environ.get("SERPAPI_KEY")
+Entrez.email = TARGET_EMAIL
+GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD")
 # =============================================
 
 def load_sent_history():
-    """이전에 발송한 URL 목록 로드"""
+    """이전에 발송한 PMC ID 목록 로드"""  # ✅ 추가
     if not os.path.exists(HISTORY_FILE):
         return set()
     
     with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
         return set(line.strip() for line in f if line.strip())
 
-def save_sent_history(urls):
-    """새로 발송한 URL을 이력 파일에 추가"""
+def save_sent_history(pmc_ids):
+    """새로 발송한 PMC ID를 이력 파일에 추가"""  # ✅ 추가
     with open(HISTORY_FILE, 'a', encoding='utf-8') as f:
-        for url in urls:
-            f.write(url + '\n')
+        for pmc_id in pmc_ids:
+            f.write(pmc_id + '\n')
 
-def extract_date_info(pub_date):
-    """
-    PubMed 날짜 정보 추출
-    예: "2026 Jan", "2026 Feb" 등
-    """
-    match = re.search(r'(202[0-9])\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)', pub_date)
-    if match:
-        return f"{match.group(1)} {match.group(2)}"
-    
-    match_year = re.search(r'202[0-9]', pub_date)
-    if match_year:
-        return match_year.group(0)
-    
-    return "2026"
-
-def fetch_pubmed_data():  # ✅ 함수명 변경
-    """PubMed에서 전체 데이터 수집"""  # ✅ 주석 변경
-    if not SERPAPI_KEY: 
-        return []
-    
-    all_articles = []
-    start_index = 0
-    page_num = 1
-    
-    while True:
-        params = {
-            "engine": "pubmed",  # ✅ 변경: google_scholar → pubmed
-            "q": SEARCH_QUERY,
-            "api_key": SERPAPI_KEY,
-            "start": start_index,
-            "num": 20
-        }
+def fetch_pmc_new_articles(term):
+    try:
+        handle = Entrez.esearch(db="pmc", term=term, retmax=50, sort='pub_date')  # ✅ retmax 증가
+        record = Entrez.read(handle)
+        handle.close()
         
-        try:
-            search = GoogleSearch(params)
-            results = search.get_dict()
-            organic_results = results.get("organic_results", [])
+        id_list = record["IdList"]
+        count = int(record["Count"])
+        
+        print(f"PMC 검색 결과: {count}건")  # ✅ 로그 추가
+        
+        if count == 0:
+            return []
+
+        handle = Entrez.esummary(db="pmc", id=",".join(id_list))
+        summary_record = Entrez.read(handle)
+        handle.close()
+        
+        articles = []
+        for doc in summary_record:
+            pmc_id = doc['Id']
+            title = doc.get('Title', 'No Title')
             
-            print(f"Page {page_num}: {len(organic_results)}건 수집 (start={start_index})")
+            pub_date = doc.get('PubDate', '')
+            epub_date = doc.get('EPubDate', '')
             
-            if not organic_results: 
-                break
+            if len(epub_date) > len(pub_date):
+                display_date = epub_date
+            else:
+                display_date = pub_date
+            
+            source = doc.get('Source', '')
+            volume = doc.get('Volume', '')
+            issue = doc.get('Issue', '')
+            pages = doc.get('Pages', '')
+            
+            citation = f"{source}"
+            if volume: citation += f". {volume}"
+            if issue:  citation += f"({issue})"
+            if pages:  citation += f":{pages}."
+            
+            link = f"https://pmc.ncbi.nlm.nih.gov/articles/PMC{pmc_id}/"
+            
+            articles.append({
+                "pmc_id": pmc_id,  # ✅ ID 추가
+                "entry": f"[ {display_date} ]\n{title}\n{citation}\n{link}"
+            })
+            
+        return articles
 
-            for result in organic_results:
-                # ✅ PubMed 응답 구조에 맞게 수정
-                pub_date = result.get("date", "")
-                snippet = result.get("snippet", "")
-                
-                date_str = extract_date_info(pub_date + " " + snippet)
-                
-                all_articles.append({
-                    "title": result.get("title", "No Title"),
-                    "link": result.get("link", "No Link"),
-                    "info": snippet if snippet else "정보 없음",
-                    "date": date_str
-                })
+    except Exception as e:
+        print(f"Error fetching data: {e}")
+        return []
 
-            if "next" in results.get("serpapi_pagination", {}):
-                start_index += 20
-                page_num += 1
-            else: 
-                break
-                
-        except Exception as e:
-            print(f"Error fetching data: {e}")
-            break
-    
-    print(f"총 수집 건수: {len(all_articles)}건")
-    return all_articles
-
-def filter_new_articles(all_articles, sent_urls):
-    """이미 발송한 논문 제외하고 신규만 필터링"""
+def filter_new_articles(all_articles, sent_ids):
+    """이미 발송한 논문 제외하고 신규만 필터링"""  # ✅ 추가
     new_articles = []
     for article in all_articles:
-        if article["link"] not in sent_urls:
+        if article["pmc_id"] not in sent_ids:
             new_articles.append(article)
     return new_articles
 
-def send_report(articles):
-    """메일 발송 (PMC 양식)"""
+def send_email(articles):
+    date_str = datetime.now().strftime("%Y-%m-%d")  # ✅ 추가
+    count = len(articles)
+    
     msg = MIMEMultipart()
     msg['From'] = TARGET_EMAIL
     msg['To'] = TARGET_EMAIL
-    
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    count = len(articles)
     msg['Subject'] = f"[PubMed] {date_str} 신규 논문 알림 ({count}건)"  # ✅ 변경
-    
+
     if articles:
-        body_parts = []
-        for item in articles:
-            part = f"[ {item['date']} ]\n{item['title']}\n{item['info']}\n{item['link']}"
-            body_parts.append(part)
-        
+        body_parts = [article["entry"] for article in articles]
         body = "\n\n".join(body_parts)
     else:
         body = "신규 논문이 없습니다."
@@ -136,26 +114,27 @@ def send_report(articles):
         server.send_message(msg)
         server.quit()
         print(f"메일 발송 완료: {count}건")
-        return True
+        return True  # ✅ 추가
     except Exception as e:
         print(f"메일 발송 실패: {e}")
-        return False
+        return False  # ✅ 추가
 
 if __name__ == "__main__":
-    if not GMAIL_PASSWORD or not SERPAPI_KEY:
-        print("환경변수 설정 필요: GMAIL_PASSWORD, SERPAPI_KEY")
+    if not GMAIL_PASSWORD:
+        print("환경변수 설정 필요: GMAIL_PASSWORD")
         exit(1)
     
+    # ✅ 증분 보고 로직 추가
     sent_history = load_sent_history()
     print(f"기존 이력: {len(sent_history)}건")
     
-    all_articles = fetch_pubmed_data()  # ✅ 변경
+    all_articles = fetch_pmc_new_articles(SEARCH_TERM)
     print(f"검색 결과: {len(all_articles)}건")
     
     new_articles = filter_new_articles(all_articles, sent_history)
     print(f"신규 논문: {len(new_articles)}건")
     
-    if send_report(new_articles):
-        new_urls = [article["link"] for article in new_articles]
-        save_sent_history(new_urls)
+    if send_email(new_articles):
+        new_ids = [article["pmc_id"] for article in new_articles]
+        save_sent_history(new_ids)
         print("이력 업데이트 완료")
