@@ -9,7 +9,7 @@ from datetime import datetime
 # ================= 사용자 설정 =================
 TARGET_EMAIL = "cybog337@gmail.com"
 SEARCH_QUERY = "biogems -biogem -cjter"
-HISTORY_FILE = "sent_list_scholar.txt"  # ✅ 변경
+HISTORY_FILE = "sent_list.txt"
 
 GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD") 
 SERPAPI_KEY = os.environ.get("SERPAPI_KEY")
@@ -53,6 +53,7 @@ def fetch_scholar_data():
     
     all_articles = []
     start_index = 0
+    page_num = 1
     
     while True:
         params = {
@@ -63,13 +64,17 @@ def fetch_scholar_data():
             "as_sdt": "0,5",
             "filter": "0",
             "start": start_index,
-            "hl": "ko"
+            "hl": "ko",
+            "num": 20  # ✅ 추가: 페이지당 결과 수를 20개로 증가
         }
         
         try:
             search = GoogleSearch(params)
             results = search.get_dict()
             organic_results = results.get("organic_results", [])
+            
+            # ✅ 디버깅 로그 추가
+            print(f"Page {page_num}: {len(organic_results)}건 수집 (start={start_index})")
             
             if not organic_results: 
                 break
@@ -88,7 +93,8 @@ def fetch_scholar_data():
                 })
 
             if "next" in results.get("serpapi_pagination", {}):
-                start_index += 10
+                start_index += 20  # ✅ 수정: 20씩 증가
+                page_num += 1
             else: 
                 break
                 
@@ -96,6 +102,7 @@ def fetch_scholar_data():
             print(f"Error fetching data: {e}")
             break
     
+    print(f"총 수집 건수: {len(all_articles)}건")
     return all_articles
 
 def filter_new_articles(all_articles, sent_urls):
