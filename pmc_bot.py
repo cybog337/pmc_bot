@@ -7,7 +7,7 @@ from datetime import datetime
 
 # ================= 사용자 설정 =================
 TARGET_EMAIL = "cybog337@gmail.com"
-SEARCH_TERM = '"biogems" AND "last 1 day"[pdat]'  # ✅ 60일로 변경
+SEARCH_TERM = '"biogems" AND "last 30 days"[pdat]'  # ✅ 60일로 변경
 HISTORY_FILE = "sent_list_pubmed.txt"  # ✅ 추가
 
 Entrez.email = TARGET_EMAIL
@@ -30,7 +30,7 @@ def save_sent_history(pmc_ids):
 
 def fetch_pmc_new_articles(term):
     try:
-        handle = Entrez.esearch(db="pmc", term=term, retmax=50, sort='pub_date')  # ✅ retmax 증가
+        handle = Entrez.esearch(db="pmc", term=term, retmax=100, sort='pub_date')  # ✅ retmax 증가
         record = Entrez.read(handle)
         handle.close()
         
