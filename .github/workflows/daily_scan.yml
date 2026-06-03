@@ -6,6 +6,10 @@ on:
     - cron: '0 21 * * *'
   workflow_dispatch: # 수동 실행 버튼
 
+# 여기에 환경 변수를 추가하여 Node.js 24 강제 적용
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   run-search:
     runs-on: ubuntu-latest
