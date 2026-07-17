@@ -171,3 +171,7 @@ https://www.biorxiv.org/content/10.64898/2026.07.06.736894.abstract
 https://bio-protocol.org/en/bpdetail?id=5777&type=0
 https://assets-eu.researchsquare.com/files/rs-9935660/v1_covered_e752af98-301e-417a-9dcf-573f9e2e4e2b.pdf
 https://www.cell.com/cell-reports/fulltext/S2211-1247(26)00750-3
+https://www.biorxiv.org/content/10.64898/2026.07.08.737331.abstract
+https://link.springer.com/article/10.1186/s12967-026-08500-8
+https://link.springer.com/article/10.1038/s44318-025-00607-w
+https://jlupub.ub.uni-giessen.de/bitstreams/9cde44eb-9554-4298-b539-289c599d8889/download
