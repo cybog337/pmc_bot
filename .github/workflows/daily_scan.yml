@@ -44,7 +44,6 @@ jobs:
 #        SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
 #      run: python googlescholar_bot.py
 
-    
     - name: Commit and push history file
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
