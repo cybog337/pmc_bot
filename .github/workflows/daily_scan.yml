@@ -38,16 +38,17 @@ jobs:
         SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}  # ✅ 추가
       run: python pmc_bot.py
       
-    - name: Run Google Scholar Bot
-      env:
-        GMAIL_PASSWORD: ${{ secrets.MY_PASSWORD }}
-        SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
-      run: python googlescholar_bot.py
+#    - name: Run Google Scholar Bot
+#      env:
+#        GMAIL_PASSWORD: ${{ secrets.MY_PASSWORD }}
+#        SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+#      run: python googlescholar_bot.py
     
     - name: Commit and push history file
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
-        git add sent_list.txt sent_list_pubmed.txt sent_list_scholar.txt  # ✅ 모든 이력 파일 추가
+        git add sent_list.txt sent_list_pubmed.txt  # ✅ 모든 이력 파일 추가
+#        git add sent_list.txt sent_list_pubmed.txt sent_list_scholar.txt  # ✅ 모든 이력 파일 추가
         git diff --quiet && git diff --staged --quiet || git commit -m "Update history files [skip ci]"
         git push
