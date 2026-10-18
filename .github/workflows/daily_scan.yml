@@ -38,11 +38,12 @@ jobs:
         SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}  # ✅ 추가
       run: python pmc_bot.py
       
-#    - name: Run Google Scholar Bot
-#      env:
-#        GMAIL_PASSWORD: ${{ secrets.MY_PASSWORD }}
-#        SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
-#      run: python googlescholar_bot.py
+#   - name: Run Google Scholar Bot
+#     env:
+#       GMAIL_PASSWORD: ${{ secrets.MY_PASSWORD }}
+#       SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+#     run: python googlescholar_bot.py
+
     - name: Commit and push history file
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
