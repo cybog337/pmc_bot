@@ -9,7 +9,7 @@ on:
 # 여기에 환경 변수를 추가하여 Node.js 24 강제 적용
 env:
 #  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION : true
 
 jobs:
   run-search:
